@@ -1,21 +1,17 @@
 ﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Host;
-using Microsoft.Azure.WebJobs.Host.Bindings;
-using Microsoft.Azure.WebJobs.Host.Config;
-using Microsoft.Azure.WebJobs.Hosting;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Host;
+using Microsoft.Azure.WebJobs.Hosting;
+using Microsoft.CodeAnalysis;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.Azure.Functions.Analyzers
 {
@@ -78,12 +74,50 @@ namespace Microsoft.Azure.Functions.Analyzers
             }
 
             // Produce tooling object
-            // TODO: In old version, Initialize() looked at every dll in _map.Values and called .AddExtension on the host config
-            // What's needed here? How do you go from IWebJobsStartupType to IExtensionConfigProvider to loading the extension?
+            var webjobsStartups = new List<Type>();
+            foreach (var path in _map.Values)
+            {
+                // We don't want to load and reflect over every dll.
+                // By convention, restrict based on filenames.
+                var filename = Path.GetFileName(path);
+                // TODO: I assume this is so general to avoid missing custom extensions, but can it be tightened up for performance?
+                if (!filename.ToLowerInvariant().Contains("extension"))
+                {
+                    continue;
+                }
+                if (path.Contains(@"\ref\"))    // Skip reference assemblies.
+                {
+                    continue; 
+                }
+
+                Assembly assembly;
+                try
+                {
+                    // See GetNuGetPackagesPath for details
+                    // Script runtime is already setup with assembly resolution hooks, so use LoadFrom
+                    assembly = Assembly.LoadFrom(path);
+
+                    string asmName = new AssemblyName(assembly.FullName).Name;
+                    _mapRef[asmName] = assembly;
+
+                    var test = assembly.GetCustomAttributes<WebJobsStartupAttribute>().Select(a => a.WebJobsStartupType);
+                    if (test.Count() > 0)
+                    {
+                        webjobsStartups.AddRange(test);
+                    }
+                }
+                catch (Exception e)
+                {
+                    // Could be a reference assembly.
+                    continue;
+                }
+            }
+
             var host = new HostBuilder()
                 .ConfigureWebJobs(b =>
                 {
-                    b.UseExternalStartup(new CompilationWebJobsStartupTypeLocator()); // TODO: Feed in Compilation? Or something else?
+                    b.AddAzureStorageCoreServices()
+                        .UseExternalStartup(new CompilationWebJobsStartupTypeLocator(_mapRef.Values.ToArray()));
                 })
                 .Build();
             var tooling = (JobHostMetadataProvider)host.Services.GetRequiredService<IJobHostMetadataProvider>();
@@ -151,16 +185,6 @@ namespace Microsoft.Azure.Functions.Analyzers
                 }
             }
             return null;
-        }
-    }
-
-    // TODO: Move to own file
-    public class CompilationWebJobsStartupTypeLocator : IWebJobsStartupTypeLocator
-    {
-        // TODO: This isn't going to work, but see why DefaultStartupTypeLocator doesn't work
-        public Type[] GetStartupTypes()
-        {
-            throw new NotImplementedException();
         }
     }
 }

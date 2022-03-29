@@ -37,7 +37,6 @@ namespace FunctionApp
 
             var test = new AnalyzerTest();
             test.ReferenceAssemblies = ReferenceAssemblies.Net.Net50.WithPackages(ImmutableArray.Create(
-                new PackageIdentity("Microsoft.Azure.WebJobs", "3.0.33-11912"),
                 new PackageIdentity("Microsoft.NET.Sdk.Functions", "3.0.11"),
                 new PackageIdentity("Microsoft.Azure.WebJobs.Extensions.Storage", "3.0.10")));
 
@@ -78,7 +77,15 @@ namespace FunctionApp
 
             test.TestCode = testCode;
 
-            test.ExpectedDiagnostics.Add(Verify.Diagnostic().WithSeverity(Microsoft.CodeAnalysis.DiagnosticSeverity.Warning));
+            //test.ExpectedDiagnostics.Add(Verify.Diagnostic()
+            //    .WithSeverity(Microsoft.CodeAnalysis.DiagnosticSeverity.Warning)
+            //    .WithSpan(12, 10, 12, 44)
+            //    .WithArguments("90-InvalidFunction"));
+
+            test.ExpectedDiagnostics.Add(Verify.Diagnostic()
+                .WithSeverity(Microsoft.CodeAnalysis.DiagnosticSeverity.Warning)
+                .WithSpan(12, 10, 12, 44)
+                .WithArguments("90-InvalidFunction"));
 
             await test.RunAsync();
         }

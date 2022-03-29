@@ -20,46 +20,49 @@ namespace Microsoft.Azure.Functions.Analyzers
         // TODO: Scope this to per-project
         JobHostMetadataProvider _tooling;
 
-        // TODO: add DiagnosticDescriptors as you build out analyzers
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get { return ImmutableArray.Create(DiagnosticDescriptors.IllegalFunctionName); } }
 
     public static void VerifyWebJobsLoaded() 
         {
-            // TODO: need JobHostContextFactory?
             var x = new JobHost(new OptionsWrapper<JobHostOptions>(new JobHostOptions()), null);
         }
 
         public override void Initialize(AnalysisContext context)
         {
+            // https://stackoverflow.com/questions/62638455/analyzer-with-code-fix-project-template-is-broken
+            context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+            context.EnableConcurrentExecution();
+
             VerifyWebJobsLoaded();
 
             // Analyze method signatures.
             context.RegisterSyntaxNodeAction(AnalyzeMethodDeclarationNode, SyntaxKind.MethodDeclaration);
 
             // Hook compilation to get the assemblies' references and build the WebJob tooling interfaces.
-            context.RegisterCompilationStartAction(compilationAnalysisContext =>
+            context.RegisterCompilationStartAction(AnalyzeCompilation);
+        }
+
+        private void AnalyzeCompilation(CompilationStartAnalysisContext context)
+        {
+            var compilation = context.Compilation;
+
+            AssemblyCache.Instance.Build(compilation);
+            _tooling = AssemblyCache.Instance.Tooling;
+
+            // cast to PortableExecutableReference which has a file path
+            var x1 = compilation.References.OfType<PortableExecutableReference>().ToArray();
+            var webJobsPath = (from reference in x1
+                               where IsWebJobsSdk(reference)
+                               select reference.FilePath).SingleOrDefault();
+
+            if (webJobsPath == null)
             {
-                var compilation = compilationAnalysisContext.Compilation;
-
-                AssemblyCache.Instance.Build(compilation);
-                _tooling = AssemblyCache.Instance.Tooling;
-
-                // cast to PortableExecutableReference which has a file path
-                var x1 = compilation.References.OfType<PortableExecutableReference>().ToArray();
-                var webJobsPath = (from reference in x1
-                                   where IsWebJobsSdk(reference)
-                                   select reference.FilePath).SingleOrDefault();
-
-                if (webJobsPath == null)
-                {
-                    return; // Not a WebJobs project.
-                }
-            });
+                return; // Not a WebJobs project.
+            }
         }
 
         private bool IsWebJobsSdk(PortableExecutableReference reference)
         {
-            // TODO: Is this conditional still accurate? Should be.. step through.
             if (reference.FilePath.EndsWith("Microsoft.Azure.WebJobs.dll"))
             {
                 return true;
