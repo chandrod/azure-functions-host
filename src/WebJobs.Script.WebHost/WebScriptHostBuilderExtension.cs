@@ -152,6 +152,11 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
                     services.AddSingleton<IFileMonitoringService, FileMonitoringService>();
                     services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, IFileMonitoringService>(p => p.GetService<IFileMonitoringService>()));
 
+                    if (environment.IsKubernetesManagedHosting())
+                    {
+                        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, FunctionsVersionLoggerService>());
+                    }
+
                     ConfigureRegisteredBuilders(services, rootServiceProvider);
                 });
 
