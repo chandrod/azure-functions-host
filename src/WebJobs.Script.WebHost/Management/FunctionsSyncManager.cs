@@ -195,6 +195,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
             {
                 // don't sync triggers when running locally or not running in a cloud
                 // hosted environment
+                Console.WriteLine("chandrod ####1");
                 return false;
             }
 
@@ -203,24 +204,44 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
                 // We don't have the encryption key required for SetTriggers,
                 // so sync calls would fail auth anyways.
                 // This might happen in when running locally for example.
+                Console.WriteLine("chandrod ####2");
                 return false;
             }
 
             if (webHostEnvironment.InStandbyMode)
             {
                 // don’t sync triggers when in standby mode
+                Console.WriteLine("chandrod ####3");
                 return false;
             }
 
+            if (environment.IsWindowsAzureManagedHosting())
+            {
+                Console.WriteLine("chandrod ****1 IsWindowsAzureManagedHosting");
+            }
+            if (environment.IsLinuxConsumption())
+            {
+                Console.WriteLine("chandrod ****2 IsLinuxConsumption");
+            }
+            if (!environment.IsContainerReady())
+            {
+                Console.WriteLine("chandrod ****3 not IsContainerReady");
+            }
             // Windows (Dedicated/Consumption)
             // Linux Consumption
             if ((environment.IsWindowsAzureManagedHosting() || environment.IsLinuxConsumption()) &&
                 !environment.IsContainerReady())
             {
                 // container ready flag not set yet – site not fully specialized/initialized
+                Console.WriteLine("chandrod ####4");
                 return false;
             }
 
+
+            // managed env => IsLinuxConsumption is true => CONTAINER_NAME=http is set CONTAINER_NAME
+            // arc/k8se => IsLinuxConsumption is false => CONTAINER_NAME is not set
+
+            Console.WriteLine("chandrod #### return true");
             return true;
         }
 
@@ -708,11 +729,14 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
                 {
                     request.Headers.Add(ScriptConstants.KubernetesManagedAppName, _environment.GetEnvironmentVariable(EnvironmentSettingNames.AzureWebsiteName));
                     request.Headers.Add(ScriptConstants.KubernetesManagedAppNamespace, _environment.GetEnvironmentVariable(EnvironmentSettingNames.PodNamespace));
+                    Console.WriteLine("chandrod request for sync triggers: {0}", request);
                 }
 
                 _logger.LogDebug($"Making SyncTriggers request (RequestId={requestId}, Uri={request.RequestUri.ToString()}, Content={sanitizedContentString}).");
 
                 var response = await _httpClient.SendAsync(request);
+
+                Console.WriteLine("chandrod request sent for sync triggers: {0}", request);
 
                 if (response.IsSuccessStatusCode)
                 {
