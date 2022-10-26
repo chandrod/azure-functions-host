@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -63,7 +64,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
         private readonly IFunctionMetadataManager _functionMetadataManager;
         private readonly SemaphoreSlim _syncSemaphore = new SemaphoreSlim(1, 1);
         private readonly IAzureBlobStorageProvider _azureBlobStorageProvider;
-
+        private readonly SimpleKubernetesClient _simpleKubernetesClient;
         private BlobClient _hashBlobClient;
 
         public FunctionsSyncManager(IConfiguration configuration, IHostIdProvider hostIdProvider, IOptionsMonitor<ScriptApplicationHostOptions> applicationHostOptions, ILogger<FunctionsSyncManager> logger, IHttpClientFactory httpClientFactory, ISecretManagerProvider secretManagerProvider, IScriptWebHostEnvironment webHostEnvironment, IEnvironment environment, HostNameProvider hostNameProvider, IFunctionMetadataManager functionMetadataManager, IAzureBlobStorageProvider azureBlobStorageProvider)
@@ -79,6 +80,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
             _hostNameProvider = hostNameProvider;
             _functionMetadataManager = functionMetadataManager;
             _azureBlobStorageProvider = azureBlobStorageProvider;
+            _simpleKubernetesClient = new SimpleKubernetesClient(_environment, _logger);
         }
 
         internal bool ArmCacheEnabled
@@ -91,6 +93,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
 
         public async Task<SyncTriggersResult> TrySyncTriggersAsync(bool isBackgroundSync = false)
         {
+            Console.WriteLine("Entered TrySync Triggers Async");
             var result = new SyncTriggersResult
             {
                 Success = true
@@ -98,6 +101,7 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
 
             if (!IsSyncTriggersEnvironment(_webHostEnvironment, _environment))
             {
+                Console.WriteLine("Invalid environment for SyncTriggers operation.");
                 result.Success = false;
                 result.Error = "Invalid environment for SyncTriggers operation.";
                 _logger.LogWarning(result.Error);
@@ -111,11 +115,12 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
                 PrepareSyncTriggers();
 
                 var hashBlobClient = await GetHashBlobAsync();
-                if (isBackgroundSync && hashBlobClient == null && !_environment.IsKubernetesManagedHosting())
+                if (isBackgroundSync && hashBlobClient == null && !_environment.IsKubernetesManagedHosting() && !_environment.IsManagedEnvironment())
                 {
                     // short circuit before doing any work in background sync
                     // cases where we need to check/update hash but don't have
                     // storage access in non-Kubernetes environments.
+                    Console.WriteLine("returning before making a request");
                     return result;
                 }
 
@@ -126,17 +131,21 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
                     // We've seen error cases where a site temporarily gets into a situation
                     // where it's site content is empty. Doing the empty sync can cause the app
                     // to go idle when it shouldn't.
+                    Console.WriteLine("No functions found. Skipping Sync operation.");
                     _logger.LogDebug("No functions found. Skipping Sync operation.");
                     return result;
                 }
 
                 bool shouldSyncTriggers = true;
                 string newHash = null;
-                if (isBackgroundSync && !_environment.IsKubernetesManagedHosting())
+                //Hackathon hack for short circuit of sync triggers
+                if (isBackgroundSync && !_environment.IsKubernetesManagedHosting() && !_environment.IsManagedEnvironment())
                 {
                     newHash = await CheckHashAsync(hashBlobClient, payload.Content);
                     shouldSyncTriggers = newHash != null;
                 }
+
+                Console.WriteLine($"shouldSyncTriggers:{shouldSyncTriggers}");
 
                 if (shouldSyncTriggers)
                 {
@@ -191,11 +200,16 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
 
         internal static bool IsSyncTriggersEnvironment(IScriptWebHostEnvironment webHostEnvironment, IEnvironment environment)
         {
+            //Hack for sync trigger short circuit
+            if (environment.GetEnvironmentVariable(EnvironmentSettingNames.ManagedEnvironment) != null)
+            {
+                return true;
+            }
+
             if (environment.IsCoreTools())
             {
                 // don't sync triggers when running locally or not running in a cloud
                 // hosted environment
-                Console.WriteLine("chandrod ####1");
                 return false;
             }
 
@@ -204,44 +218,27 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
                 // We don't have the encryption key required for SetTriggers,
                 // so sync calls would fail auth anyways.
                 // This might happen in when running locally for example.
-                Console.WriteLine("chandrod ####2");
                 return false;
             }
 
             if (webHostEnvironment.InStandbyMode)
             {
                 // don’t sync triggers when in standby mode
-                Console.WriteLine("chandrod ####3");
                 return false;
             }
 
-            if (environment.IsWindowsAzureManagedHosting())
-            {
-                Console.WriteLine("chandrod ****1 IsWindowsAzureManagedHosting");
-            }
-            if (environment.IsLinuxConsumption())
-            {
-                Console.WriteLine("chandrod ****2 IsLinuxConsumption");
-            }
-            if (!environment.IsContainerReady())
-            {
-                Console.WriteLine("chandrod ****3 not IsContainerReady");
-            }
             // Windows (Dedicated/Consumption)
             // Linux Consumption
             if ((environment.IsWindowsAzureManagedHosting() || environment.IsLinuxConsumption()) &&
                 !environment.IsContainerReady())
             {
                 // container ready flag not set yet – site not fully specialized/initialized
-                Console.WriteLine("chandrod ####4");
                 return false;
             }
-
 
             // managed env => IsLinuxConsumption is true => CONTAINER_NAME=http is set CONTAINER_NAME
             // arc/k8se => IsLinuxConsumption is false => CONTAINER_NAME is not set
 
-            Console.WriteLine("chandrod #### return true");
             return true;
         }
 
@@ -672,16 +669,23 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
 
         internal HttpRequestMessage BuildSetTriggersRequest()
         {
+            Console.WriteLine("Entered BuildSetTriggerRequest");
             var url = default(string);
-            if (_environment.IsKubernetesManagedHosting())
+            if (_environment.IsKubernetesManagedHosting() || _environment.IsManagedEnvironment())
             {
+                Console.WriteLine("Entered the correct if condition");
                 var buildServiceHostname =
                     _environment.GetEnvironmentVariable("BUILD_SERVICE_HOSTNAME");
                 if (string.IsNullOrEmpty(buildServiceHostname))
                 {
+                    Console.WriteLine("buildServiceHostname is empty");
                     buildServiceHostname = $"http://{ManagedKubernetesBuildServiceName}.{ManagedKubernetesBuildServiceNamespace}.svc.cluster.local:{ManagedKubernetesBuildServicePort}";
                 }
                 url = $"{buildServiceHostname}/api/operations/settriggers";
+                // url = $"{buildServiceHostname}/api/operations/settriggers";
+
+                Console.WriteLine($"Making a sync trigger call to {url}");
+                return _simpleKubernetesClient.GetRequest(HttpMethod.Post, url).Result;
             }
             else
             {
@@ -703,11 +707,16 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
         // of triggers. It'll verify app ownership using a SWT token valid for 5 minutes. It should be plenty.
         private async Task<(bool, string)> SetTriggersAsync(string content)
         {
-            var token = SimpleWebTokenHelper.CreateToken(DateTime.UtcNow.AddMinutes(5));
-
+            Console.WriteLine("Entered SetTriggersAsync");
+            Console.WriteLine(content);
+            //var token = SimpleWebTokenHelper.CreateToken(DateTime.UtcNow.AddMinutes(5));
+            // Hackathon hack for not creating a token
+            // var token = "Dummy Token";
+            // Console.WriteLine($"Created a dummy token");
             string sanitizedContentString = content;
             if (ArmCacheEnabled)
             {
+                Console.WriteLine($"ArmCacheEnabled is {ArmCacheEnabled}");
                 // sanitize the content before logging
                 var sanitizedContent = JToken.Parse(content);
                 if (sanitizedContent.Type == JTokenType.Object)
@@ -717,38 +726,50 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
                 }
             }
 
+            Console.WriteLine("going to call BuildSetTriggersRequest");
             using (var request = BuildSetTriggersRequest())
             {
+                Console.WriteLine("Built the request. Sending the Request");
                 var requestId = Guid.NewGuid().ToString();
                 request.Headers.Add(ScriptConstants.AntaresLogIdHeaderName, requestId);
                 request.Headers.Add("User-Agent", ScriptConstants.FunctionsUserAgent);
-                request.Headers.Add(ScriptConstants.SiteTokenHeaderName, token);
+                request.Headers.Add(ScriptConstants.KubernetesManagedAppName, _environment.GetEnvironmentVariable("CONTAINER_APP_NAME"));
+                // request.Version = HttpVersion.Version10;
+                //request.Headers.ConnectionClose = true;
+                //request.Headers.Add(ScriptConstants.SiteTokenHeaderName, token);
                 request.Content = new StringContent(content, Encoding.UTF8, "application/json");
 
+                Console.WriteLine("Checking if IsKubernetes");
                 if (_environment.IsKubernetesManagedHosting())
                 {
                     request.Headers.Add(ScriptConstants.KubernetesManagedAppName, _environment.GetEnvironmentVariable(EnvironmentSettingNames.AzureWebsiteName));
                     request.Headers.Add(ScriptConstants.KubernetesManagedAppNamespace, _environment.GetEnvironmentVariable(EnvironmentSettingNames.PodNamespace));
-                    Console.WriteLine("chandrod request for sync triggers: {0}", request);
                 }
 
+                Console.WriteLine($"Making SyncTriggers request (RequestId={requestId}, Uri={request.RequestUri.ToString()}, Content={sanitizedContentString}).");
                 _logger.LogDebug($"Making SyncTriggers request (RequestId={requestId}, Uri={request.RequestUri.ToString()}, Content={sanitizedContentString}).");
 
-                var response = await _httpClient.SendAsync(request);
-
-                Console.WriteLine("chandrod request sent for sync triggers: {0}", request);
-
-                if (response.IsSuccessStatusCode)
+                try
                 {
-                    _logger.LogDebug("SyncTriggers call succeeded.");
-                    return (true, null);
+                    var response = await _httpClient.SendAsync(request);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        _logger.LogDebug("SyncTriggers call succeeded.");
+                        return (true, null);
+                    }
+                    else
+                    {
+                        string message = $"SyncTriggers call failed (StatusCode={response.StatusCode}).";
+                        _logger.LogDebug(message);
+                        return (false, message);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    string message = $"SyncTriggers call failed (StatusCode={response.StatusCode}).";
-                    _logger.LogDebug(message);
-                    return (false, message);
+                    Console.WriteLine($"Exception encountered while sending request: {ex}");
                 }
+                return (false, null);
             }
         }
 

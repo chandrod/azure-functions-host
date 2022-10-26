@@ -105,7 +105,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
                     if (FunctionsSyncManager.IsSyncTriggersEnvironment(webHostEnvironment, environment))
                     {
-                        Console.WriteLine("chandrod **** adding service IsSyncTriggersEnvironment");
                         services.AddSingleton<IHostedService, FunctionsSyncService>();
                     }
 

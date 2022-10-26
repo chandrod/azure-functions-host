@@ -8,7 +8,7 @@ RUN cd workingdir && \
     dotnet publish src/WebJobs.Script.WebHost/WebJobs.Script.WebHost.csproj --output /azure-functions-host
 
 # Runtime image
-FROM mcr.microsoft.com/azure-functions/python:3.0
+FROM mcr.microsoft.com/azure-functions/python:4-python3.9
 
 RUN apt-get update && \
     apt-get install -y gnupg && \
@@ -29,7 +29,7 @@ ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
     HOME=/home \
     ASPNETCORE_URLS=http://+:80 \
     AZURE_FUNCTIONS_ENVIRONMENT=Development \
-    FUNCTIONS_WORKER_RUNTIME=dotnet
+    FUNCTIONS_WORKER_RUNTIME=python
 
 EXPOSE 80
 

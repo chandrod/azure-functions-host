@@ -32,7 +32,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Controllers
         [Route("admin/pod/assign")]
         public async Task<IActionResult> Assign([FromBody] EncryptedHostAssignmentContext encryptedAssignmentContext)
         {
-            Console.WriteLine("chandrod @@@15");
             _logger.LogDebug($"Starting container assignment for host : {Request?.Host}");
             var assignmentContext = _startupContextProvider.SetContext(encryptedAssignmentContext);
 
@@ -42,7 +41,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Controllers
                 return StatusCode(StatusCodes.Status400BadRequest, error);
             }
 
-            Console.WriteLine("chandrod @@@11");
             var succeeded = _instanceManager.StartAssignment(assignmentContext);
 
             return succeeded

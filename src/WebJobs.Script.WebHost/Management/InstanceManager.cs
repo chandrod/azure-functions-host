@@ -105,7 +105,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
 
         public bool StartAssignment(HostAssignmentContext context)
         {
-            Console.WriteLine("chandrod @@@1");
             if (!_webHostEnvironment.InStandbyMode)
             {
                 // This is only true when specializing pinned containers.
@@ -118,14 +117,12 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
 
             if (_environment.IsContainerReady())
             {
-                Console.WriteLine("chandrod @@@8");
                 _logger.LogError("Assign called while container is marked as specialized.");
                 return false;
             }
 
             if (context.IsWarmupRequest)
             {
-                Console.WriteLine("chandrod @@@7");
                 // Based on profiling download code jit-ing holds up cold start.
                 // Pre-jit to avoid paying the cost later.
                 Task.Run(async () => await _packageDownloadHandler.Download(context.GetRunFromPkgContext()));
@@ -133,7 +130,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
             }
             else if (_assignmentContext == null)
             {
-                Console.WriteLine("chandrod @@@5");
                 lock (_assignmentLock)
                 {
                     if (_assignmentContext != null)
@@ -143,7 +139,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
                     _assignmentContext = context;
                 }
 
-                Console.WriteLine("chandrod @@@6");
                 _logger.LogInformation($"Starting Assignment. Cloud Name: {_environment.GetCloudName()}");
 
                 // set a flag which will cause any incoming http requests to buffer
@@ -288,12 +283,10 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
             {
                 // first make all environment and file system changes required for
                 // the host to be specialized
-                Console.WriteLine("chandrod @@@3");
                 await ApplyContext(assignmentContext);
             }
             catch (Exception ex)
             {
-                Console.WriteLine("chandrod @@@4");
                 _logger.LogError(ex, "Assign failed");
                 await _meshServiceClient.NotifyHealthEvent(ContainerHealthEventType.Fatal, GetType(), "Assign failed");
                 throw;
@@ -305,7 +298,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Management
                 // even if there are failures applying context above, we want to
                 // leave placeholder mode
                 _logger.LogInformation("Triggering specialization");
-                Console.WriteLine("chandrod @@@2");
                 _webHostEnvironment.FlagAsSpecializedAndReady();
 
                 _webHostEnvironment.ResumeRequests();

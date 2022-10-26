@@ -279,7 +279,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Metrics
 
         private HttpRequestMessage BuildRequest<TContent>(HttpMethod method, string path, TContent content)
         {
-            Console.WriteLine("chandrod preparing request fir webhost : {0}", _requestUri);
             var request = new HttpRequestMessage(method, _requestUri + path)
             {
                 Content = new ObjectContent<TContent>(content, new JsonMediaTypeFormatter())

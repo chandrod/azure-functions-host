@@ -38,7 +38,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Controllers
         [Authorize(Policy = PolicyNames.AdminAuthLevel)]
         public async Task<IActionResult> Assign([FromBody] EncryptedHostAssignmentContext encryptedAssignmentContext)
         {
-            Console.WriteLine("chandrod @@@12");
             _logger.LogDebug($"Starting container assignment for host : {Request?.Host}. ContextLength is: {encryptedAssignmentContext.EncryptedContext?.Length}");
 
             var assignmentContext = _startupContextProvider.SetContext(encryptedAssignmentContext);
@@ -59,7 +58,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, error);
             }
 
-            Console.WriteLine("chandrod @@@10");
             var succeeded = _instanceManager.StartAssignment(assignmentContext);
 
             return succeeded

@@ -24,7 +24,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
     {
         public static void Main(string[] args)
         {
-            Console.WriteLine("chandrod Main");
             InitializeProcess();
 
             var host = BuildWebHost(args);
@@ -40,7 +39,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
         public static IWebHostBuilder CreateWebHostBuilder(string[] args = null)
         {
-            Console.WriteLine("chandrod CreateWebHostBuilder");
             return AspNetCore.WebHost.CreateDefaultBuilder(args)
                 .ConfigureKestrel(o =>
                 {

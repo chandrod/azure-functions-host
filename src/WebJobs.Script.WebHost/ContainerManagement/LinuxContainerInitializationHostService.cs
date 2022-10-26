@@ -33,26 +33,21 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.ContainerManagement
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            Console.WriteLine("chandrod @@@14");
             _logger.LogInformation("Initializing LinuxContainerInitializationService.");
             _cancellationToken = cancellationToken;
 
             // The service should be registered in Linux Consumption only, but do additional check here.
             if (_environment.IsLinuxConsumption())
             {
-                Console.WriteLine("chandrod @@@18");
                 await ApplyStartContextIfPresent();
             }
         }
 
         private async Task ApplyStartContextIfPresent()
         {
-            Console.WriteLine("chandrod @@@13");
             var startContext = await GetStartContextOrNullAsync();
-            Console.WriteLine("chandrod @@@19  startCtx : {0}", startContext);
             if (!string.IsNullOrEmpty(startContext))
             {
-                Console.WriteLine("chandrod @@@20");
                 _logger.LogInformation("Applying host context");
 
                 var encryptedAssignmentContext = JsonConvert.DeserializeObject<EncryptedHostAssignmentContext>(startContext);
@@ -66,7 +61,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.ContainerManagement
                     _logger.LogError("MSI Specialization failed with '{msiError}'", msiError);
                 }
 
-                Console.WriteLine("chandrod @@@9");
                 bool success = _instanceManager.StartAssignment(assignmentContext);
                 _logger.LogInformation($"StartAssignment invoked (Success={success})");
             }
@@ -78,25 +72,17 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.ContainerManagement
 
         private async Task<string> GetStartContextOrNullAsync()
         {
-            Console.WriteLine("chandrod @@@21");
             var startContext = _environment.GetEnvironmentVariable(EnvironmentSettingNames.ContainerStartContext);
 
             // Container start context is not available directly
             if (string.IsNullOrEmpty(startContext))
             {
-                Console.WriteLine("chandrod @@@22");
                 // Check if the context is available in blob
                 var sasUri = _environment.GetEnvironmentVariable(EnvironmentSettingNames.ContainerStartContextSasUri);
-                Console.WriteLine("chandrod @@@23 sasUri : {0}", sasUri);
                 if (!string.IsNullOrEmpty(sasUri))
                 {
                     _logger.LogInformation("Host context specified via CONTAINER_START_CONTEXT_SAS_URI");
                     startContext = await GetAssignmentContextFromSasUri(sasUri);
-                    Console.WriteLine("chandrod @@@24  startContext : {0}", startContext);
-                }
-                else
-                {
-                    Console.WriteLine("chandrod @@@25");
                 }
             }
             else
@@ -104,7 +90,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.ContainerManagement
                 _logger.LogInformation("Host context specified via CONTAINER_START_CONTEXT");
             }
 
-            Console.WriteLine("chandrod @@@26  startCtx : ", startContext);
             return startContext;
         }
 
@@ -112,7 +97,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost.ContainerManagement
         {
             try
             {
-                Console.WriteLine("chandrod @@@27");
                 return await Read(sasUri);
             }
             catch (Exception e)

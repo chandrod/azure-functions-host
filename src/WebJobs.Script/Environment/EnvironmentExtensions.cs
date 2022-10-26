@@ -232,14 +232,6 @@ namespace Microsoft.Azure.WebJobs.Script
         /// <returns><see cref="true"/> if running in a Linux Consumption App Service app; otherwise, false.</returns>
         public static bool IsLinuxConsumption(this IEnvironment environment)
         {
-            if (!environment.IsAppService())
-            {
-                Console.WriteLine("chandrod @@@31");
-            }
-            if (!string.IsNullOrEmpty(environment.GetEnvironmentVariable(ContainerName)))
-            {
-                Console.WriteLine("chandrod @@@32");
-            }
             return !environment.IsAppService() && !string.IsNullOrEmpty(environment.GetEnvironmentVariable(ContainerName));
         }
 
@@ -274,6 +266,12 @@ namespace Microsoft.Azure.WebJobs.Script
         public static bool IsAppService(this IEnvironment environment)
         {
             return !string.IsNullOrEmpty(environment.GetEnvironmentVariable(AzureWebsiteInstanceId));
+        }
+
+        //Hackathon hack for IsManagedHosting
+        public static bool IsManagedEnvironment(this IEnvironment environment)
+        {
+            return !string.IsNullOrEmpty(environment.GetEnvironmentVariable(ManagedEnvironment));
         }
 
         /// <summary>

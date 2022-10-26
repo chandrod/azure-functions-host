@@ -33,6 +33,7 @@ namespace Microsoft.Azure.WebJobs.Script
         public const string WebSiteHomeStampName = "WEBSITE_HOME_STAMPNAME";
         public const string WebSiteStampDeploymentId = "WEBSITE_STAMP_DEPLOYMENT_ID";
         public const string WebSiteAuthEncryptionKey = "WEBSITE_AUTH_ENCRYPTION_KEY";
+        public const string ManagedEnvironment = "MANAGED_ENVIRONMENT";
         public const string ContainerEncryptionKey = "CONTAINER_ENCRYPTION_KEY";
         public const string ConsoleLoggingDisabled = "CONSOLE_LOGGING_DISABLED";
         public const string SkipSslValidation = "SCM_SKIP_SSL_VALIDATION";

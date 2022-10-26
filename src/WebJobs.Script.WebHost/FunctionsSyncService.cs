@@ -44,7 +44,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             {
                 bool ret = _primaryHostStateProvider.IsPrimary &&
                        (_scriptHostManager.State == ScriptHostState.Running);
-                Console.WriteLine("chandrod shouldSyncTrigger : {0}", ret);
                 return ret;
             }
         }
@@ -73,7 +72,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
                 if (!cancellationToken.IsCancellationRequested && ShouldSyncTriggers)
                 {
-                    Console.WriteLine("chandrod calling timer syncTrigger operation");
                     _logger.LogDebug("Initiating background SyncTriggers operation");
                     await _functionsSyncManager.TrySyncTriggersAsync(isBackgroundSync: true);
                 }

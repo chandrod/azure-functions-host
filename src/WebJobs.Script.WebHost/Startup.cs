@@ -22,7 +22,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            Console.WriteLine("chandrod Startup");
             services.AddWebJobsScriptHostAuthentication();
             services.AddWebJobsScriptHostAuthorization();
             services.AddWebJobsScriptHost(Configuration);

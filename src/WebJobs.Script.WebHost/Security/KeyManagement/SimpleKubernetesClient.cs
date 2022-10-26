@@ -227,7 +227,31 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
             return (url, isSecret);
         }
 
-        private async Task<HttpRequestMessage> GetRequest(HttpMethod method, string url, object payload = null, string contentType = null, bool closeConnection = true)
+        public async Task<HttpRequestMessage> GetRequest(HttpMethod method, string url, object payload = null, string contentType = null, bool closeConnection = true)
+        {
+            string token = await FileUtility.ReadAsync(TokenFile);
+            const string jsonContentType = "application/json";
+            contentType = contentType ?? jsonContentType;
+
+            var request = new HttpRequestMessage(method, url);
+            request.Headers.Add(HeaderNames.Authorization, $"Bearer {token}");
+            request.Headers.Add(HeaderNames.Accept, jsonContentType);
+
+            if (closeConnection)
+            {
+                request.Headers.Add(HeaderNames.Connection, "close");
+            }
+
+            if (payload != null)
+            {
+                var jsonPayload = JsonConvert.SerializeObject(payload);
+                request.Content = new StringContent(jsonPayload, Encoding.UTF8, contentType);
+            }
+
+            return request;
+        }
+
+        public async Task<HttpRequestMessage> GetRequestCert(HttpMethod method, string url, object payload = null, string contentType = null, bool closeConnection = true)
         {
             string token = await FileUtility.ReadAsync(TokenFile);
             const string jsonContentType = "application/json";

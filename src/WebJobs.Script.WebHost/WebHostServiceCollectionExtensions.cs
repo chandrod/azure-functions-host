@@ -72,7 +72,6 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
         public static void AddWebJobsScriptHost(this IServiceCollection services, IConfiguration configuration)
         {
-            Console.WriteLine("chandrod AddWebJobsScriptHost");
             services.AddHttpContextAccessor();
             services.AddWebJobsScriptHostRouting();
 
@@ -203,13 +202,11 @@ namespace Microsoft.Azure.WebJobs.Script.WebHost
 
         private static void AddLinuxContainerServices(this IServiceCollection services)
         {
-            Console.WriteLine("chandrod @@@16");
             services.AddSingleton<IHostedService>(s =>
             {
                 var environment = s.GetService<IEnvironment>();
                 if (environment.IsLinuxConsumption())
                 {
-                    Console.WriteLine("chandrod @@@17");
                     var instanceManager = s.GetService<IInstanceManager>();
                     var logger = s.GetService<ILogger<LinuxContainerInitializationHostService>>();
                     var startupContextProvider = s.GetService<StartupContextProvider>();
